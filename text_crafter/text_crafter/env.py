@@ -131,7 +131,6 @@ class Env(BaseClass):
       dead = False
     health_reward = 0
     over = self._length and self._step >= self._length
-    done = dead or over
     info = {
         'inventory': self.player.inventory.copy(),
         'achievements': self.player.achievements.copy(),
@@ -149,7 +148,7 @@ class Env(BaseClass):
     }
 
     reward = unlock_reward + health_reward
-    return obs, reward, done, info
+    return obs, reward, dead, over, info
 
   def convert_to_old_actions(self, action):
       return action

@@ -56,14 +56,16 @@ class BaseTextEnv(Env):
             'inv_status': inv_status,
             'success': False
         }
-        return self.tokenize_obs(obs), info
+        #return self.tokenize_obs(obs), info
+        return obs, info # tokenize text observation later
 
     def step(self, action):
         """ Step the env. Action is passed in as an int."""
         if self.action_space_type == 'harder':
             verb, noun = self.unflatten_ac(action)
             action = tuple([verb, noun])
-        obs, reward, done, info = super().step(action)
+        obs, reward, terminated, truncated, info = super().step(action)
+        
         info['env_reward'] = reward
         text_obs, inv_status = self.text_obs()
         obs = {
@@ -72,7 +74,8 @@ class BaseTextEnv(Env):
             'inv_status': inv_status,
             'success': info['action_success']
         }
-        return self.tokenize_obs(obs), reward, done, info
+        #return self.tokenize_obs(obs), reward, done, info
+        return obs, reward, terminated, truncated, info # tokenize text observation later
 
     @property
     def action_names(self):
