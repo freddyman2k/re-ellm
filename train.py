@@ -1,7 +1,7 @@
 from environment import TextCrafterEnv
 from llm import LLMGoalGenerator
 from policy import DQNPolicy
-from ellm_reward import compute_intrinsic_reward
+from ellm_reward import ELLMRewardCalculator
 
 SIMILARITY_THRESHOLD = 0.99
 BATCH_SIZE = 64
@@ -20,6 +20,7 @@ def evaluate(policy, env, n_episodes=10):
 def train_agent(max_env_steps=5000000, eval_every=5000):
     env = TextCrafterEnv()
     goal_generator = LLMGoalGenerator()
+    reward_calculator = ELLMRewardCalculator()
     policy = DQNPolicy(env.observation_space.shape, env.action_space.n)
     
     global_step = 0
@@ -45,14 +46,15 @@ def train_agent(max_env_steps=5000000, eval_every=5000):
         next_state, reward, done, info = env.step(action)
 
         # Compute suggestion achievement reward
-        intrinsic_reward, closest_suggestion = compute_intrinsic_reward(action, goal_suggestions)
+        action_name = env.get_action_name(action)
+        intrinsic_reward, closest_suggestion = reward_calculator.compute_cosine_similarity(action_name, goal_suggestions)
         if intrinsic_reward > SIMILARITY_THRESHOLD and info["action_success"]:
             reward = reward + intrinsic_reward
             # If the action was successful and the LLM made a suggestion that corresponds to it, add it to the list of achieved goals
             prev_achieved_goals.append(closest_suggestion)
         
         # Update agent using any RL algorithm 
-        policy.buffer.store_transition(state, action, total_reward, next_state, done)
+        policy.buffer.store_transition(state, action, reward, next_state, done)
         policy.update(BATCH_SIZE)
         
         if done:
