@@ -3,53 +3,7 @@ import text_crafter.text_crafter
 from gym.wrappers import LazyFrames
 from collections import deque
 import numpy as np
-from gym.spaces import Box
-
-
-env_spec = {
-    'name': 'CrafterTextEnv-v1',
-    'seed': 111,
-    'action_space_type': 'harder',
-    'env_reward': None,  # to be specified later
-    'dying': True,
-    'length': 400,
-    'max_seq_len': 200,
-    'use_sbert': False,
-    'device': 'cpu',
-    'use_language_state': False,
-    'threshold': .99,
-    'check_ac_success': True,
-    'frame_stack': 4,
-}
-
-class TextCrafterEnv:
-    def __init__(self, 
-                name='CrafterTextEnv-v1',
-                action_space_type='harder',
-                env_reward=None,
-                device='cpu',  
-                use_language_state=False,
-                use_sbert=False,
-                frame_stack=4,
-                **kwargs
-                ):
-        
-        env = gym.make(name,
-                action_space_type=action_space_type,
-                env_reward=env_reward,
-                device=device,  
-                use_language_state=use_language_state,
-                use_sbert=use_sbert,) 
-        self.env = CustomFrameStack(env, frame_stack) 
-        
-
-    def reset(self):
-        return self.env.reset()
-
-    def step(self, action):
-        return self.env.step(action)
-    
-    
+from gym.spaces import Box   
     
 class CustomFrameStack(gym.ObservationWrapper):
     def __init__(self, 
@@ -108,8 +62,4 @@ class CustomFrameStack(gym.ObservationWrapper):
         return self.observation(observation), info
     
 
-
-env = TextCrafterEnv(**env_spec)
-obs, info = env.reset()
-obs, reward, terminated, truncated, info = env.step(0)
 
