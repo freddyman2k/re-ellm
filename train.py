@@ -72,6 +72,8 @@ def train_agent(max_env_steps=5000000, eval_every=5000):
     reward_calculator = ELLMRewardCalculator()
     policy = DQNPolicy(env.observation_space.shape, env.action_space.n)
     
+    prev_achieved_goals = []
+    
     global_step = 0
     state, _ = env.reset()
     # Embed text observations
@@ -83,8 +85,10 @@ def train_agent(max_env_steps=5000000, eval_every=5000):
     last_eval_episode = 0
 
     while global_step < max_env_steps:        
-        # Generate k suggestions, filtering achieved ones
+        # Generate goal suggestions, filtering achieved ones
         goal_suggestions = goal_generator.generate_goals(state['text_obs'])
+        #TODO: Maybe also filter out suggestions that are too similar to each other, e.g. "eat plant" and "eat plants"   
+        goal_suggestions = [goal for goal in goal_suggestions if goal not in prev_achieved_goals]
 
         # Interact with the environment
         action = policy.select_action(embedded_state)  
@@ -101,7 +105,7 @@ def train_agent(max_env_steps=5000000, eval_every=5000):
         if intrinsic_reward > SIMILARITY_THRESHOLD and info["action_success"]:
             reward = reward + intrinsic_reward
             # If the action was successful and the LLM made a suggestion that corresponds to it, add it to the list of achieved goals
-            goal_generator.prev_achieved_goals.append(closest_suggestion)
+            prev_achieved_goals.append(closest_suggestion)
         
         # Update agent using any RL algorithm 
         policy.buffer.store_transition(embedded_state, action, reward, embedded_next_state, done)
