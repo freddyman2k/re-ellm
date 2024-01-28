@@ -1,12 +1,13 @@
-from environment import CustomFrameStack, TransformObsSpace
-from llm import LLMGoalGenerator
-from policy import DQNPolicy
-from ellm_reward import ELLMRewardCalculator
-import text_crafter.text_crafter
 import gymnasium as gym
 from stable_baselines3 import DQN
 from stable_baselines3.common import logger
 
+from environment import CustomFrameStack, TransformObsSpace
+from llm import LLMGoalGenerator
+from policy import DQNPolicy
+from ellm_reward import ELLMRewardCalculator
+from utils import TextEmbedder
+import text_crafter.text_crafter
 
 
 SIMILARITY_THRESHOLD = 0.99
@@ -46,42 +47,53 @@ def make_env(name='CrafterTextEnv-v1',
     return env
 
 
-def evaluate(policy, env, n_episodes=10):
+def evaluate(policy, env, obs_embedder, n_episodes=10):
     total_reward = 0
     for _ in range(n_episodes):
         state = env.reset()
         done = False
-        while not done:
-            # TODO: Embed text observations
-            action = policy.select_action(state)
+        
+        while not done:   
+            # Embed text observations
+            embedded_state = {
+                'obs': state['obs'], 
+                'text_obs': obs_embedder.embed(state['text_obs'])
+                }          
+            action = policy.select_action(embedded_state)
             state, reward, done, info = env.step(action)
+            
             total_reward += reward
     return total_reward / n_episodes
 
 def train_agent(max_env_steps=5000000, eval_every=5000):
     goal_generator = LLMGoalGenerator()
     env = make_env(**env_spec)
+    obs_embedder = TextEmbedder()
     reward_calculator = ELLMRewardCalculator()
     policy = DQNPolicy(env.observation_space.shape, env.action_space.n)
     
     global_step = 0
-    state = env.reset()
+    state, _ = env.reset()
+    # Embed text observations
+    embedded_state = {
+        'obs': state['obs'], 
+        'text_obs': obs_embedder.embed(state['text_obs'])
+        } 
     done = False
     last_eval_episode = 0
 
     while global_step < max_env_steps:        
         # Generate k suggestions, filtering achieved ones
-        goal_suggestions = goal_generator.generate_goals(state['text'])
+        goal_suggestions = goal_generator.generate_goals(state['text_obs'])
 
         # Interact with the environment
-        obs = {
-            'image_state': state['image'], #TODO: rename'image', 'text'
-            'text_state': state['text'],
-            'goal': " ".join(goal_suggestions)
-        }
-        # TODO: Embed text observations
-        action = policy.select_action(obs)  
+        action = policy.select_action(embedded_state)  
         next_state, reward, done, info = env.step(action)
+        # Embed text observations
+        embedded_next_state = {
+            'obs': next_state['obs'], 
+            'text_obs': obs_embedder.embed(next_state['text_obs'])
+            } 
 
         # Compute suggestion achievement reward
         action_name = env.get_action_name(action)
@@ -92,13 +104,13 @@ def train_agent(max_env_steps=5000000, eval_every=5000):
             goal_generator.prev_achieved_goals.append(closest_suggestion)
         
         # Update agent using any RL algorithm 
-        policy.buffer.store_transition(state, action, reward, next_state, done)
+        policy.buffer.store_transition(embedded_state, action, reward, embedded_next_state, done)
         policy.update(BATCH_SIZE)
         
         if done:
             if global_step - last_eval_episode >= eval_every:
                 # Evaluate agent
-                eval_reward = evaluate(policy, env)
+                eval_reward = evaluate(policy, env, obs_embedder)
                 # Remember time of last evaluation
                 last_eval_episode = global_step
             
