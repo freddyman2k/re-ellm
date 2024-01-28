@@ -1,9 +1,21 @@
-import gym
+import gymnasium as gym
 import text_crafter.text_crafter
-from gym.wrappers import LazyFrames
+from gymnasium.wrappers import LazyFrames
 from collections import deque
 import numpy as np
-from gym.spaces import Box   
+from gymnasium.spaces import Box  
+
+class TransformObsSpace(gym.ObservationWrapper):
+    # wrapp the observation space to include the embedded text observation and the image in a gym.spaces.Dict
+    def __init__(self, env, embedding_shape=(384,)):
+        super().__init__(env)
+        self.observation_space=gym.spaces.Dict({
+            'obs': self.env.observation_space,
+            'text_obs': gym.spaces.Box(low=-np.inf, high=np.inf, shape=embedding_shape),
+        })
+    def observation(self, observation):
+        return observation
+
     
 class CustomFrameStack(gym.ObservationWrapper):
     def __init__(self, 

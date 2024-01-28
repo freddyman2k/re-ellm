@@ -1,17 +1,22 @@
-from environment import CustomFrameStack
+from environment import CustomFrameStack, TransformObsSpace
 from llm import LLMGoalGenerator
 from policy import DQNPolicy
 from ellm_reward import ELLMRewardCalculator
 import text_crafter.text_crafter
-import gym
+import gymnasium as gym
+from stable_baselines3 import DQN
+from stable_baselines3.common import logger
+
+
 
 SIMILARITY_THRESHOLD = 0.99
 BATCH_SIZE = 64
 env_spec = {
     'name': 'CrafterTextEnv-v1',
-    'seed': 111,
     'action_space_type': 'harder',
     'env_reward': None,  # to be specified later
+    'embedding_shape': (384,),
+    'seed': 1,
     'dying': True,
     'length': 400,
     'max_seq_len': 200,
@@ -30,7 +35,6 @@ def make_env(name='CrafterTextEnv-v1',
                 use_language_state=False,
                 use_sbert=False,
                 frame_stack=4,
-                goal_generator=None,
                 **kwargs):
     env = gym.make(name,
                 action_space_type=action_space_type,
@@ -56,7 +60,7 @@ def evaluate(policy, env, n_episodes=10):
 
 def train_agent(max_env_steps=5000000, eval_every=5000):
     goal_generator = LLMGoalGenerator()
-    env = make_env(**env_spec, goal_generator)
+    env = make_env(**env_spec)
     reward_calculator = ELLMRewardCalculator()
     policy = DQNPolicy(env.observation_space.shape, env.action_space.n)
     
@@ -106,4 +110,15 @@ def train_agent(max_env_steps=5000000, eval_every=5000):
         global_step += 1
 
 if __name__ == "__main__":
+    env = make_env(**env_spec)
+    env = TransformObsSpace(env)
+    obs, info = env.reset()
+    print(obs)
+    obs, reward, terminated, truncated, info = env.step(0)
+    model = DQN('MultiInputPolicy', env, verbose=1)
+    # Configure the logger
+    new_logger = logger.configure('./logs', ['stdout', 'log', 'csv', 'tensorboard'])
+    model.set_logger(new_logger)
+    
+    
     train_agent()

@@ -3,7 +3,7 @@ from .text_env import BaseTextEnv
 from .recorder import Recorder
 
 try:
-    import gym
+    import gymnasium as gym
     gym.register(
         id='CrafterReward-v1',
         entry_point='text_crafter.text_crafter:BaseTextEnv',

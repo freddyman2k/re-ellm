@@ -2,7 +2,7 @@
 
 import string
 import numpy as np
-import gym
+import gymnasium as gym
 from transformers import AutoTokenizer
 
 from text_crafter.text_crafter import constants
@@ -46,7 +46,7 @@ class BaseTextEnv(Env):
         else:
             return super().action_space
 
-    def reset(self):
+    def reset(self, **kwargs):
         """ Reset the env, return a dictionary of tokenized string observations."""
         obs, info = super().reset()
         text_obs, inv_status = self.text_obs()
