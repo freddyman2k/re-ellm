@@ -14,6 +14,8 @@ class TransformObsSpace(gym.ObservationWrapper):
             'text_obs': gym.spaces.Box(low=-np.inf, high=np.inf, shape=embedding_shape),
         })
     def observation(self, observation):
+        text_obs_complete = " ".join([observation['text_obs'], observation['inv_status']['inv'], observation['inv_status']['status']])
+        observation = {'obs': observation['obs'], 'text_obs': text_obs_complete}
         return observation
 
     
