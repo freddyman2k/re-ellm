@@ -170,3 +170,12 @@ class LLMGoalGenerator:
             
         return suggestion_list
         
+
+class DummyLLM(LLMBaseClass):
+    """A dummy language model that always returns the same response."""
+    def __init__(self, response=""):
+        super().__init__()
+        self.response = response
+        
+    def _generate_response_impl(self, prompt: str) -> str:
+        return self.response
