@@ -46,6 +46,12 @@ def make_env(name='CrafterTextEnv-v1',
     env = CustomFrameStack(env, frame_stack)
     return env
 
+def embed_text_observation(obs, obs_embedder):
+    """Embed text observations manually because this makes using stable baselines policy and replay buffer easier"""
+    return {
+        'obs': obs['obs'], 
+        'text_obs': obs_embedder.embed(obs['text_obs'])
+        }
 
 def evaluate(policy, env, obs_embedder, n_episodes=10):
     total_reward = 0
@@ -54,11 +60,7 @@ def evaluate(policy, env, obs_embedder, n_episodes=10):
         done = False
         
         while not done:   
-            # Embed text observations
-            embedded_state = {
-                'obs': state['obs'], 
-                'text_obs': obs_embedder.embed(state['text_obs'])
-                }          
+            embedded_state = embed_text_observation(state, obs_embedder)
             action = policy.select_action(embedded_state)
             state, reward, done, info = env.step(action)
             
@@ -77,11 +79,7 @@ def train_agent(max_env_steps=5000000, eval_every=5000):
     
     global_step = 0
     state, _ = env.reset()
-    # Embed text observations
-    embedded_state = {
-        'obs': state['obs'], 
-        'text_obs': obs_embedder.embed(state['text_obs'])
-        } 
+    embedded_state = embed_text_observation(state, obs_embedder)
     done = False
     last_eval_episode = 0
 
@@ -94,11 +92,8 @@ def train_agent(max_env_steps=5000000, eval_every=5000):
         # Interact with the environment
         action = policy.select_action(embedded_state)  
         next_state, reward, done, info = env.step(action)
-        # Embed text observations
-        embedded_next_state = {
-            'obs': next_state['obs'], 
-            'text_obs': obs_embedder.embed(next_state['text_obs'])
-            } 
+        # Embed text observations manually because this makes using stable baselines policy and replay buffer easier
+        embedded_next_state = embed_text_observation(next_state, obs_embedder)
 
         # Compute suggestion achievement reward
         action_name = env.get_action_name(action)
