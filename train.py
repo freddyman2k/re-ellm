@@ -3,7 +3,7 @@ from stable_baselines3 import DQN
 from stable_baselines3.common import logger
 
 from environment import CustomFrameStack, TransformObsSpace
-from llm import LLMGoalGenerator
+from llm import HuggingfacePipelineLLM, LLMGoalGenerator
 from policy import DQNPolicy
 from ellm_reward import ELLMRewardCalculator
 from utils import TextEmbedder
@@ -66,7 +66,8 @@ def evaluate(policy, env, obs_embedder, n_episodes=10):
     return total_reward / n_episodes
 
 def train_agent(max_env_steps=5000000, eval_every=5000):
-    goal_generator = LLMGoalGenerator()
+    language_model = HuggingfacePipelineLLM("mistralai/Mistral-7B-Instruct-v0.2", cache_file="cache.pkl")
+    goal_generator = LLMGoalGenerator(language_model=language_model)
     env = make_env(**env_spec)
     obs_embedder = TextEmbedder()
     reward_calculator = ELLMRewardCalculator()
@@ -117,6 +118,8 @@ def train_agent(max_env_steps=5000000, eval_every=5000):
                 eval_reward = evaluate(policy, env, obs_embedder)
                 # Remember time of last evaluation
                 last_eval_episode = global_step
+                # Store language model cache on disk for future runs
+                language_model.save_cache()
             
             # Reset environment
             state = env.reset()

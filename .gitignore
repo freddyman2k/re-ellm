@@ -1,6 +1,7 @@
-#logging directory
+# logging directories
 logs/
 logging/
+tcml_out/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
