@@ -3,6 +3,10 @@ logs/
 logging/
 tcml_out/
 tb_logs/
+eval_logs/
+
+# data directories
+data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
