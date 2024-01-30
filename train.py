@@ -70,7 +70,7 @@ def evaluate(agent, env, obs_embedder, n_episodes=10):
 
 def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
     language_model = HuggingfacePipelineLLM("mistralai/Mistral-7B-Instruct-v0.2", cache_file="cache.pkl")
-    # language_model = DummyLLM(response="- Chop grass") # for debugging other parts that do not need GPU, if you use this you don't need to submit a job to the cluster
+    # language_model = DummyLLM() # for debugging other parts that do not need GPU, if you use this you don't need to submit a job to the cluster
     goal_generator = LLMGoalGenerator(language_model=language_model)
     env = make_env(**env_spec)
     env = TransformObsSpace(env) # Transform observation space to be compatible with stable baselines later
@@ -144,3 +144,4 @@ def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
 
 if __name__ == "__main__":    
     train_agent()
+    
