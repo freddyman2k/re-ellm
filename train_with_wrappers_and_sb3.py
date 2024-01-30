@@ -56,8 +56,14 @@ class SharedState:
         self.prev_achieved_goals = []
 
 class CreateCompleteTextObs(gym.ObservationWrapper):
+    def __init__(self, env, debug=False):
+        super().__init__(env)
+        self.debug = debug
     """Create the complete text observation as in the paper by concatenating the text observation with the inventory and status"""
     def observation(self, observation):
+        if self.debug: # add inventory and status for debugging
+            observation['inv_status']['inv']="you have wood."
+            observation['inv_status']['status']="you are hungry."
         text_obs_complete = " ".join([observation['text_obs'], observation['inv_status']['inv'], observation['inv_status']['status']])
         observation = {'obs': observation['obs'], 'text_obs': text_obs_complete}
         return observation
@@ -120,8 +126,8 @@ def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
     eval_log_dir = "./eval_logs/"
     os.makedirs(eval_log_dir, exist_ok=True)
     
-    language_model = HuggingfacePipelineLLM("mistralai/Mistral-7B-Instruct-v0.2", cache_file="cache.pkl")
-    # language_model = DummyLLM() # for debugging other parts that do not need GPU, if you use this you don't need to submit a job to the cluster
+    #language_model = HuggingfacePipelineLLM("mistralai/Mistral-7B-Instruct-v0.2", cache_file="cache.pkl")
+    language_model = DummyLLM("- eat plant") # for debugging other parts that do not need GPU, if you use this you don't need to submit a job to the cluster
     goal_generator = LLMGoalGenerator(language_model=language_model)
     obs_embedder = TextEmbedder()
     reward_calculator = ELLMRewardCalculator()
