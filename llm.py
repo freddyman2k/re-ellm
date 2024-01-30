@@ -172,9 +172,9 @@ class LLMGoalGenerator:
         
 
 class DummyLLM(LLMBaseClass):
-    """A dummy language model that always returns the same response."""
-    def __init__(self, response=""):
-        super().__init__()
+    """A dummy language model that always returns the same response if cache misses."""
+    def __init__(self, response="- Chop tree", cache_file="cache.pkl"):
+        super().__init__(cache_file=cache_file)
         self.response = response
         
     def _generate_response_impl(self, prompt: str) -> str:
