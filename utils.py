@@ -1,6 +1,9 @@
 import torch
 from sentence_transformers import SentenceTransformer
 import matplotlib.pyplot as plt
+from stable_baselines3.common.callbacks import BaseCallback
+import pickle
+from llm import LLMBaseClass
 
 class TextEmbedder:
     """Uses a pretrained SBERT model to embed text into a vector representation that can be used by a SB3 Policy network. 
@@ -30,3 +33,15 @@ def visualize_obs(obs, goal_suggestions=None, frame_stack=4):
         axs[i].axis('off')
         axs[i].set_title(f't={i - frame_stack + 1}', y=-0.15)
     plt.show()
+
+class SaveCacheCallback(BaseCallback):
+    def __init__(self, language_model: LLMBaseClass):
+        super(SaveCacheCallback, self).__init__()
+        self.language_model = language_model
+
+    def _on_step(self) -> bool:
+        # Save the cache
+        #TODO: when saving cache, should we load the global cache first and update with new keys? 
+        # (in case we run multiple instances of the same language model)
+        self.language_model.save_cache()
+        return True
