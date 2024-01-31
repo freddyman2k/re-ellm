@@ -16,14 +16,9 @@ STATUS_THRESHOLD = 9
 
 class BaseTextEnv(Env):
     """Base text environment for running baselines, where we can get text observations"""
-    def __init__(self, action_space_type='easier', use_sbert=False, max_seq_len=100,  **kwargs):
+    def __init__(self, action_space_type='easier',  **kwargs):
         super().__init__(**kwargs)
         self.action_space_type = action_space_type  # Easier or harder
-
-        # Tokenizer to encode all strings
-        self.use_sbert = use_sbert
-        if use_sbert:
-            self.tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/paraphrase-MiniLM-L3-v2', use_fast=True)
 
         # Obs configuration
         view = self._view
@@ -31,7 +26,6 @@ class BaseTextEnv(Env):
         self._text_view = engine.EmbeddingView(self.world, [
             objects.Player, objects.Cow, objects.Zombie,
             objects.Skeleton, objects.Arrow, objects.Plant], [view[0], view[1] - item_rows])
-        self._max_seq_len = max_seq_len
         self._vocab = self._get_action_vocab()
 
     @property
@@ -56,7 +50,6 @@ class BaseTextEnv(Env):
             'inv_status': inv_status,
             'success': False
         }
-        #return self.tokenize_obs(obs), info
         return obs, info # tokenize text observation later
 
     def step(self, action):
@@ -74,7 +67,6 @@ class BaseTextEnv(Env):
             'inv_status': inv_status,
             'success': info['action_success']
         }
-        #return self.tokenize_obs(obs), reward, done, info
         return obs, reward, terminated, truncated, info # tokenize text observation later
 
     @property
@@ -180,85 +172,8 @@ class BaseTextEnv(Env):
             status_str = status_str[:-2] + "."
         return inv_str, status_str
 
-    def tokenize_str(self, s):
-        """Tokenize a string using the vocab index"""
-        if self.use_sbert:  # Use SBERT tokenizer
-            return np.array(self.tokenizer(s)['input_ids'])
-        # Use the vocab index
-        arr = np.zeros(self._max_seq_len, dtype=int)
-        if " " in s:
-            word_list = [w.strip(string.punctuation + ' ').lower() for w in s.split()]
-            word_list = [w for w in word_list if len(w) > 0]
-        else:
-            word_list = [s.lower()]
-        assert len(word_list) <= self._max_seq_len, f"word list length {len(word_list)} too long; increase max seq length: {self._max_seq_len}"
 
-        for i, word in enumerate(word_list):
-            if len(word) == 0:
-                continue
-            assert word in self._vocab, f"Invalid vocab word: |{word}|. {s}"
-            arr[i] = self._vocab.index(word)
-        return arr
 
-    def pad_sbert(self, input_arr):
-        """Pad array to max seq length"""
-        arr = np.zeros(self._max_seq_len, dtype=int)
-        if len(input_arr) > self._max_seq_len:
-            input_arr = input_arr[:self._max_seq_len]
-        arr[:len(input_arr)] = input_arr
-        return arr
-
-    def tokenize_obs(self, obs_dict):
-        """
-        Takes in obs dict and returns a dict where all strings are tokenized.
-        """
-        if self.use_sbert and isinstance(obs_dict['inv_status'], dict):
-            inv_status = ""
-            for k, v in obs_dict['inv_status'].items():
-                if v != '.' and 'null' not in v:
-                    inv_status += v + " "
-            obs_dict['text_obs'] = obs_dict['text_obs'] + " " + inv_status
-
-        new_obs = {}
-        for k, v in obs_dict.items():
-            # If the value is a dictionary of strings, concatenate them into a single string
-            if isinstance(v, dict) and isinstance(list(v.values())[0], str):
-                v = " ".join(v.values())
-            # If the value is a string, tokenize it
-            if isinstance(v, str):
-                arr = self.tokenize_str(v)
-                new_obs[k] = arr
-            else:
-                # Value is already tokenized (int, array, etc)
-                new_obs[k] = v
-        if self.use_sbert:
-            new_obs['text_obs'] = self.pad_sbert(new_obs['text_obs'])
-        return new_obs
-
-    def untokenize_arr(self, arr):
-        """Takes in an array of tokenized words and returns a string"""
-        if self.use_sbert:
-            # Trim off zero padding
-            arr = arr[:np.argmax(arr == 0)]
-            # Trim off the [CLS] token at the beginning and the [SEP] token at the end
-            arr = arr[1:-1]
-            return self.tokenizer.decode(arr)
-        else:
-            # 0 is the padding token
-            return " ".join([self._vocab[token] for token in arr.tolist() if not token == 0])
-
-    def untokenize_obs(self, obs):
-        """" Takes in either a tokenized array or an obs_dict (same as output of tokenize_obs)
-        Turns input into strings (or an obs_dict of strings) """
-        if isinstance(obs, np.ndarray):
-            return self.untokenize_arr(obs)
-        assert isinstance(obs, dict)
-        new_obs = {}
-        for k, v in obs.items():
-            if not k == 'obs':
-                v = self.untokenize_arr(v)
-            new_obs[k] = v
-        return new_obs
 
     def _get_action_vocab(self):
         """Create a list of all possible vocab words."""
