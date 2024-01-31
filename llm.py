@@ -178,13 +178,38 @@ class LLMGoalGenerator:
                 # (LLM may generate more text after the suggestions for the current text obs)
                 break            
         return suggestion_list
-        
 
-class DummyLLM(LLMBaseClass):
-    """A dummy language model that always returns the same response if cache misses."""
-    def __init__(self, response="- Chop tree", cache_file="cache.pkl"):
+ 
+class TestCacheLLM(LLMBaseClass):
+    """A dummy language model for testing purposes that returns only cached responses."""
+    def __init__(self, cache_file="cache.pkl"):
         super().__init__(cache_file=cache_file)
+        
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        if device == "cuda":
+            logging.warning("TestCacheLLM is intended for debugging on the CPU. Are you sure you want to use this model?")
+        
+    def _generate_response_impl(self, prompt: str) -> str:
+        return ""
+    
+    def save_cache(self):
+        """Since we do not generate new responses, this model should does not need to write to the cache."""
+        logging.warning("TestCacheLLM.save_cache() was called, but this model does not generate \
+            new responses and thus cannot write to the cache. Are you sure you want to use this model?")
+        pass
+
+
+class ConstantLLM(LLMBaseClass):
+    """A dummy language model for testing purposes that always returns the same response."""
+    def __init__(self, response="- Chop tree"):
+        super().__init__(cache_file="")
         self.response = response
         
     def _generate_response_impl(self, prompt: str) -> str:
         return self.response
+    
+    def save_cache(self):
+        """Since we do not generate new responses, this model should does not need to write to the cache."""
+        logging.warning("ConstantLLM.save_cache() was called, but this model does not generate \
+            new responses and does cannot write to the cache. Are you sure you want to use this model?")
+        pass

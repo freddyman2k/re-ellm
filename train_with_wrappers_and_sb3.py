@@ -128,8 +128,8 @@ def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
     eval_log_dir = "./eval_logs/"
     os.makedirs(eval_log_dir, exist_ok=True)
     
-    # language_model = HuggingfacePipelineLLM("mistralai/Mistral-7B-Instruct-v0.2", cache_file="cache.pkl")
-    language_model = DummyLLM() # for debugging other parts that do not need GPU, if you use this you don't need to submit a job to the cluster
+    language_model = HuggingfacePipelineLLM("mistralai/Mistral-7B-Instruct-v0.2", cache_file="cache.pkl")
+    # language_model = TestCacheLLM() # for debugging other parts that do not need GPU, if you use this you don't need to submit a job to the cluster
     goal_generator = LLMGoalGenerator(language_model=language_model)
     obs_embedder = TextEmbedder()
     reward_calculator = ELLMRewardCalculator()
