@@ -3,7 +3,7 @@ import os
 import gymnasium as gym
 from stable_baselines3 import DQN
 from stable_baselines3.common import logger
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import EvalCallback, EveryNTimesteps
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack
 from stable_baselines3.common.env_checker import check_env
@@ -11,10 +11,10 @@ import numpy as np
 import torch
 
 from environment import CustomFrameStack, TransformObsSpace
-from llm import HuggingfacePipelineLLM, LLMGoalGenerator, DummyLLM
+from llm import HuggingfacePipelineLLM, LLMGoalGenerator, TestCacheLLM
 from policy import DQNPolicy
 from ellm_reward import ELLMRewardCalculator
-from utils import TextEmbedder
+from utils import SaveCacheCallback, TextEmbedder
 import text_crafter.text_crafter
 
 
@@ -57,21 +57,45 @@ class CreateCompleteTextObs(gym.ObservationWrapper):
     
 class RewardIfActionSimilarToGoalSuggestionsFromLastStep(gym.Wrapper):
     """Rewards the agent if the action it took is similar to one of the goal suggestions for the next state"""
-    def __init__(self, env, reward_calculator, shared_state, similarity_threshold=0.99):
+    def __init__(self, env, reward_calculator, shared_state, similarity_threshold=0.99, print_on_reward=False):
         super().__init__(env)
         self.reward_calculator = reward_calculator
         self.similarity_threshold = similarity_threshold
         self.shared_state = shared_state
+        self.print_on_reward = print_on_reward
+        
+        self.last_text_obs = None
+        
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        self.last_text_obs = obs['text_obs']
+        return obs, info
         
     def step(self, action):
-        obs, reward, terminated, truncated, info = self.env.step(action)
+        obs, _, terminated, truncated, info = self.env.step(action)
                 
         # Compute reward based on similarity between the actual action and the suggested ones
+        reward = 0
         action_name = self.env.get_action_name(action)
         intrinsic_reward, closest_suggestion = self.reward_calculator.compute_cosine_similarity(action_name, self.shared_state.last_state_goal_suggestions)
-        if intrinsic_reward > SIMILARITY_THRESHOLD and info["action_success"]:
+        if intrinsic_reward > self.similarity_threshold and info["action_success"]:
             reward = reward + intrinsic_reward
             self.shared_state.prev_achieved_goals.append(closest_suggestion)
+            
+            if self.print_on_reward:
+                # Print some info if the agent received an intrinsic reward 
+                print("\n=====================================================")
+                print("\nRewarding agent for successfully enacting a suggestion!")
+                print("\nLast text obs: ", self.last_text_obs)
+                print("\nPolicy chose the following action from the last observation: ", action_name)
+                print("\nGenerated suggestions in last step: ", self.shared_state.last_state_goal_suggestions)
+                print("\nMost similar suggestion: ", closest_suggestion)
+                print("\nCurrent text obs: ", obs['text_obs'])
+                print("\nIntrinsic reward: ", intrinsic_reward)
+                print("\nGoal suggestions after appending achieved suggestion: ", self.shared_state.prev_achieved_goals)
+                print("=====================================================\n")
+        
+        self.last_text_obs = obs['text_obs']
         
         return obs, reward, terminated, truncated, info
 
@@ -131,6 +155,9 @@ def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
     language_model = HuggingfacePipelineLLM("mistralai/Mistral-7B-Instruct-v0.2", cache_file="cache.pkl")
     # language_model = TestCacheLLM() # for debugging other parts that do not need GPU, if you use this you don't need to submit a job to the cluster
     goal_generator = LLMGoalGenerator(language_model=language_model)
+    
+    
+    
     obs_embedder = TextEmbedder()
     reward_calculator = ELLMRewardCalculator()
     
@@ -167,8 +194,17 @@ def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
                                 n_eval_episodes=10, deterministic=True,
                                 render=False)
     
-    agent = DQN('MultiInputPolicy', train_env, verbose=1, tensorboard_log="./tb_logs", device=device)
-    agent.learn(total_timesteps=max_env_steps, callback=eval_callback, log_interval=log_every)
+    save_cache_callback = EveryNTimesteps(n_steps=eval_every, callback=SaveCacheCallback(language_model))
+    
+    agent = DQN('MultiInputPolicy', 
+                train_env, 
+                verbose=1, 
+                tensorboard_log="./tb_logs", 
+                device=device)
+    
+    agent.learn(total_timesteps=max_env_steps, 
+                callback=[eval_callback, save_cache_callback], 
+                log_interval=log_every)
     
 if __name__ == "__main__":    
     train_agent()
