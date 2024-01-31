@@ -35,7 +35,7 @@ class LLMBaseClass(ABC):
         else:
             self.cache = {}
     
-    def generate_response(self, prompt: str) -> str:
+    def generate_response(self, prompt: str, use_cache=True) -> str:
         """Generates a response given a prompt, using a cache lookup instead if possible. 
 
         Args:
@@ -44,7 +44,7 @@ class LLMBaseClass(ABC):
         Returns:
             str: The generated response.
         """
-        if prompt in self.cache:
+        if prompt in self.cache and use_cache:
             return self.cache[prompt]
 
         response = self._generate_response_impl(prompt)
@@ -142,7 +142,21 @@ class LLMGoalGenerator:
         full_prompt = prompt_prefix + text_observation + prompt_suffix
         response = self.language_model.generate_response(full_prompt)
             
-        return self._parse_response(response)
+        suggestion_list = self._parse_response(response)
+        
+        # Log a warning if no suggestions were generated, this could indicate a problem with the language model
+        if len(suggestion_list) == 0:
+            logging.warning(f"Language model response could not be parsed or did not contain any suggestions. Trying again...")
+            
+            # Try again without using the cache
+            response2 = self.language_model.generate_response(full_prompt, use_cache=False)
+            suggestion_list = self._parse_response(response2)
+            
+            if len(suggestion_list) == 0:
+                logging.warning(f"Language model response could not be parsed again or did not contain any suggestions. \
+                    Prompt:\n {full_prompt}\nResponse 1:\n {response}\nResponse 2:\n {response2}\n Returning empty list.")
+            
+        return suggestion_list
     
     def _parse_response(self, response: str) -> List[str]:
         """Parses a language model response to extract the suggested actions.
@@ -162,12 +176,7 @@ class LLMGoalGenerator:
             else:
                 # Stop parsing when we reach the end of the suggestions 
                 # (LLM may generate more text after the suggestions for the current text obs)
-                break
-            
-        # Log a warning if no suggestions were generated, this could indicate a problem with the language model
-        if len(suggestion_list) == 0:
-            logging.warning("Language model response could not be parsed or did not contain any suggestions.")
-            
+                break            
         return suggestion_list
         
 
