@@ -47,6 +47,8 @@ class SharedState:
         self.prev_achieved_goals = []
 
 class CreateCompleteTextObs(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
     """Create the complete text observation as in the paper by concatenating the text observation with the inventory and status"""
     def observation(self, observation):
         text_obs_complete = " ".join([observation['text_obs'], observation['inv_status']['inv'], observation['inv_status']['status']])

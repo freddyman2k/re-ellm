@@ -8,6 +8,12 @@ eval_logs/
 # data directories
 data/
 
+
+# mac specific files
+.DS_Store
+
+#vscode specific files
+.vscode/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
