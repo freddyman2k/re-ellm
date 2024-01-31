@@ -4,7 +4,11 @@ import gymnasium as gym
 from stable_baselines3 import DQN
 from stable_baselines3.common import logger
 from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import VecFrameStack
+from stable_baselines3.common.env_checker import check_env
 import numpy as np
+import torch
 
 from environment import CustomFrameStack, TransformObsSpace
 from llm import HuggingfacePipelineLLM, LLMGoalGenerator, DummyLLM
@@ -19,15 +23,10 @@ BATCH_SIZE = 64
 env_spec = {
     'name': 'CrafterTextEnv-v1',
     'action_space_type': 'harder',
-    'env_reward': None,  # to be specified later
-    'embedding_shape': (384,),
+    'env_reward': False, 
     'seed': 1,
     'dying': True,
-    'length': 400,
-    'max_seq_len': 200,
-    'use_sbert': False,
-    'device': 'cpu',
-    'use_language_state': False,
+    'length': 400, # TODO: Discuss if we should use a different length for training
     'threshold': .99,
     'check_ac_success': True,
     'frame_stack': 4,
@@ -35,19 +34,11 @@ env_spec = {
 
 def make_env(name='CrafterTextEnv-v1',
                 action_space_type='harder',
-                env_reward=None,
                 device='cpu',  
-                use_language_state=False,
-                use_sbert=False,
-                frame_stack=4,
                 **kwargs):
     env = gym.make(name,
                 action_space_type=action_space_type,
-                env_reward=env_reward,
-                device=device,  
-                use_language_state=use_language_state,
-                use_sbert=use_sbert,)
-    env = CustomFrameStack(env, frame_stack)
+                device=device)
     return env
 
 class SharedState:
@@ -114,14 +105,29 @@ class EmbedTextObs(gym.ObservationWrapper):
             'text_obs': self.obs_embedder.embed(observation['text_obs'])
             }
 
+def make_full_train_env(reward_calculator, goal_generator, obs_embedder, shared_state, device="cpu"):
+    env = make_env(**env_spec, device=device)
+    env = CreateCompleteTextObs(env)
+    env = RewardIfActionSimilarToGoalSuggestionsFromLastStep(env, reward_calculator, shared_state, similarity_threshold=SIMILARITY_THRESHOLD)
+    env = GenerateGoalSuggestions(env, goal_generator, shared_state) 
+    env = EmbedTextObs(env, obs_embedder)
+    return env
+
+def make_full_eval_env(obs_embedder, device="cpu", ):
+    env = make_env(**env_spec, device=device)
+    env = CreateCompleteTextObs(env)
+    env = EmbedTextObs(env, obs_embedder)
+    return env
 
 def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
     # Create log dir where evaluation results will be saved
     eval_log_dir = "./eval_logs/"
     os.makedirs(eval_log_dir, exist_ok=True)
     
-    language_model = HuggingfacePipelineLLM("mistralai/Mistral-7B-Instruct-v0.2", cache_file="cache.pkl")
-    # language_model = DummyLLM() # for debugging other parts that do not need GPU, if you use this you don't need to submit a job to the cluster
+    # language_model = HuggingfacePipelineLLM("mistralai/Mistral-7B-Instruct-v0.2", cache_file="cache.pkl")
+    language_model = DummyLLM() # for debugging other parts that do not need GPU, if you use this you don't need to submit a job to the cluster
     goal_generator = LLMGoalGenerator(language_model=language_model)
     obs_embedder = TextEmbedder()
     reward_calculator = ELLMRewardCalculator()
@@ -130,15 +136,28 @@ def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
     shared_state = SharedState()
     
     # TODO: Discuss if maybe we should only use one ELLMWrapper which does everything (or at least Reward + Goal Generation, since this is where the global magic happens), instead of splitting it up into multiple wrappers -> could avoid shared state
-    train_env = make_env(**env_spec)
-    train_env = CreateCompleteTextObs(train_env)
-    train_env = RewardIfActionSimilarToGoalSuggestionsFromLastStep(train_env, reward_calculator, shared_state, similarity_threshold=SIMILARITY_THRESHOLD)
-    train_env = GenerateGoalSuggestions(train_env, goal_generator, shared_state) 
-    train_env = EmbedTextObs(train_env, obs_embedder)
     
-    eval_env = make_env(**env_spec)
-    eval_env = CreateCompleteTextObs(eval_env)
-    eval_env = EmbedTextObs(eval_env, obs_embedder)
+    # Make sure that envs are valid. TODO: maybe move to tests
+    check_env(make_full_train_env(reward_calculator, goal_generator, obs_embedder, shared_state))
+    check_env(make_full_eval_env(obs_embedder))
+    
+    train_env = make_vec_env(make_full_train_env, 
+                             n_envs=1, 
+                             seed=env_spec['seed'], 
+                             env_kwargs={'reward_calculator': reward_calculator, 
+                                         'goal_generator': goal_generator, 
+                                         'obs_embedder': obs_embedder, 
+                                         'shared_state': shared_state, 
+                                         'device': device
+                                         })
+    train_env = VecFrameStack(train_env, n_stack=env_spec['frame_stack'])
+    
+    eval_env = make_vec_env(make_full_eval_env, 
+                             n_envs=1, 
+                             seed=env_spec['seed'], 
+                             env_kwargs={'obs_embedder': obs_embedder,
+                                         'device': device})
+    eval_env = VecFrameStack(eval_env, n_stack=env_spec['frame_stack'])
 
     # Create callback that evaluates agent every eval_every steps and saves the best model
     eval_callback = EvalCallback(eval_env, best_model_save_path=eval_log_dir,
@@ -146,7 +165,7 @@ def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
                                 n_eval_episodes=10, deterministic=True,
                                 render=False)
     
-    agent = DQN('MultiInputPolicy', train_env, verbose=1, tensorboard_log="./tb_logs")
+    agent = DQN('MultiInputPolicy', train_env, verbose=1, tensorboard_log="./tb_logs", device=device)
     agent.learn(total_timesteps=max_env_steps, callback=eval_callback, log_interval=log_every)
     
 if __name__ == "__main__":    
