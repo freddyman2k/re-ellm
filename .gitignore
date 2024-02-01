@@ -7,7 +7,7 @@ eval_logs/
 
 # data directories
 data/
-
+chache.pkl
 
 # mac specific files
 .DS_Store
