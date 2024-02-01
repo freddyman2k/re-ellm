@@ -3,6 +3,8 @@ from sentence_transformers import SentenceTransformer
 import matplotlib.pyplot as plt
 from stable_baselines3.common.callbacks import BaseCallback
 from llm import LLMBaseClass
+from datetime import datetime
+
 
 class TextEmbedder:
     """Uses a pretrained SBERT model to embed text into a vector representation that can be used by a SB3 Policy network. 
@@ -48,3 +50,25 @@ class SaveCacheCallback(BaseCallback):
         # (in case we run multiple instances of the same language model)
         self.language_model.save_cache()
         return True
+    
+
+def make_exp_name(env_spec):
+    exp_run_str = f"run_seed-{env_spec['seed']}_{env_spec['goal_generator']}_"
+    if env_spec['goal_generator'] == "LLMGoalGenerator":
+        exp_run_str += f"{env_spec['language_model']}_"
+    if env_spec['novelty_bias']:
+        exp_run_str += "novelty-bias_"
+    else:
+        exp_run_str += "no-novelty-bias_"
+    if env_spec['check_ac_success']:
+        exp_run_str += "reward-on-ac-success_"
+    else:
+        exp_run_str += "ignore-ac-success_"
+    
+    now = datetime.now()
+    # Format as YYYY-MM-DD_HH
+    date_time_str = now.strftime("%Y-%m-%d_%H")
+    exp_run_str += date_time_str  
+    return exp_run_str
+
+
