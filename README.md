@@ -8,7 +8,7 @@ Final Project of Reinforcement Learning (WS 2023/2024), Sapienza
 - [Link to Paper](https://arxiv.org/abs/2302.06692)
 - [Link to Code Base](https://github.com/yuqingd/ellm)
 
-
+![ELLM algorithm](ELLM.png)
 # Project Guideline:
 ## 1. Installation (using conda)
 ```console
