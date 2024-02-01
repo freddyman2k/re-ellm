@@ -2,7 +2,6 @@
 **Fryderyk Mantiuk**, mail: mantiuk.2124851@studenti.uniroma1.it
 
 **Clara Grotehans**, mail: grotehans.2121604@studenti.uniroma1.it
-Final Project of Reinforcement Learning (WS 2023/2024), Sapienza
 
 ## Implementation "Guiding Pretraining in Reinforcement Learning with Large Language Models" by Y. Du, O. Watkins, et. al.
 - [Link to Paper](https://arxiv.org/abs/2302.06692)
