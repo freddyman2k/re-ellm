@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import logging
 import pickle
 import os
+import random
 from typing import List
 
 import torch
@@ -28,7 +29,8 @@ MAX_NEW_TOKENS = 50
 class LLMBaseClass(ABC):
     """A wrapper for a language model that can generate text given a prompt."""
     
-    def __init__(self, cache_file="cache.pkl"):
+    def __init__(self, cache_file="cache.pkl", max_cache_size=1000):
+        self.max_cache_size = max_cache_size
         self.cache_file = cache_file
         if os.path.exists(self.cache_file):
             self._load_cache()
@@ -48,7 +50,10 @@ class LLMBaseClass(ABC):
             return self.cache[prompt]
 
         response = self._generate_response_impl(prompt)
-        self.cache[prompt] = response
+        if len(self.cache) < self.max_cache_size:
+            # Only add to cache if it is not full yet, otherwise always we will need to perform inference again
+            # TODO: Would be nice to have a cache that automatically removes the oldest or least used entries instead
+            self.cache[prompt] = response
         return response        
     
     def _generate_response_impl(self, prompt: str) -> str:
@@ -179,6 +184,39 @@ class LLMGoalGenerator:
                 break            
         return suggestion_list
 
+class ConstantGoalGenerator:
+    """A goal generator that always suggests a predefined list of goals."""
+    def __init__(self, goal_list):
+        self.goal_list = goal_list
+        
+    def generate_goals(self, text_observation: str, prompt_prefix=TEXTCRAFTER_PROMPT_PREFIX, prompt_suffix=TEXTCRAFTER_PROMPT_SUFFIX) -> List[str]: 
+        """Generates a list of suggested actions for the agent to pursue.
+        
+        Args:
+            text_observation (str): A text description of the current state the agent is in.
+            
+        Returns:
+            list[str]: A list of suggested actions for the agent to pursue.
+        """
+        return self.goal_list
+
+class ConstantSamplerGoalGenerator:
+    """A goal generator that samples from a predefined list of goals."""
+    def __init__(self, goal_list):
+        self.goal_list = goal_list
+        
+    def generate_goals(self, text_observation: str, prompt_prefix=TEXTCRAFTER_PROMPT_PREFIX, prompt_suffix=TEXTCRAFTER_PROMPT_SUFFIX) -> List[str]: 
+        """Generates a list of suggested actions for the agent to pursue.
+        
+        Args:
+            text_observation (str): A text description of the current state the agent is in.
+            
+        Returns:
+            list[str]: A list of suggested actions for the agent to pursue.
+        """
+        return [random.choice(self.goal_list)]
+
+### Dummy language models for testing purposes ###
  
 class TestCacheLLM(LLMBaseClass):
     """A dummy language model for testing purposes that returns only cached responses."""

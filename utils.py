@@ -2,15 +2,15 @@ import torch
 from sentence_transformers import SentenceTransformer
 import matplotlib.pyplot as plt
 from stable_baselines3.common.callbacks import BaseCallback
-import pickle
 from llm import LLMBaseClass
 
 class TextEmbedder:
     """Uses a pretrained SBERT model to embed text into a vector representation that can be used by a SB3 Policy network. 
     Caches embeddings for each input to avoid recomputing them.
     """
-    def __init__(self, model_name='paraphrase-MiniLM-L3-v2', device=torch.device("cuda" if torch.cuda.is_available() else "cpu")):
+    def __init__(self, model_name='paraphrase-MiniLM-L3-v2', max_cache_size=1000, device=torch.device("cuda" if torch.cuda.is_available() else "cpu")):
         self.model = SentenceTransformer(model_name, device=device)
+        self.max_cache_size = max_cache_size
         self.embeddings = {}
     
     def embed(self, text):
@@ -18,7 +18,10 @@ class TextEmbedder:
             return self.embeddings[text]
         else:
             embedding = self.model.encode(text)
-            self.embeddings[text] = embedding
+            if len(self.embeddings) < self.max_cache_size:
+                # Only add to cache if it is not full yet, otherwise always we will need to embed again
+                # TODO: Would be nice to have a cache that automatically removes the oldest or least used entries instead
+                self.embeddings[text] = embedding
             return embedding
         
 def visualize_obs(obs, goal_suggestions=None, frame_stack=4):
