@@ -9,6 +9,8 @@ from stable_baselines3.common.vec_env import VecFrameStack
 from stable_baselines3.common.env_checker import check_env
 import numpy as np
 import torch
+import yaml
+
 
 from llm import HuggingfacePipelineLLM, LLMGoalGenerator, ConstantGoalGenerator, ConstantSamplerGoalGenerator, TestCacheLLM
 from ellm_reward import ELLMRewardCalculator
@@ -16,20 +18,6 @@ from utils import SaveCacheCallback, TextEmbedder, make_exp_name
 from env_wrapper import CreateCompleteTextObs, RewardIfActionSimilarToGoalSuggestionsFromLastStep, EmbedTextObs, GenerateGoalSuggestions
 import text_crafter.text_crafter
 
-env_spec = {
-    'name': 'CrafterTextEnv-v1',
-    'action_space_type': 'harder',
-    'env_reward': False, 
-    'seed': 1,
-    'dying': True,
-    'length': 400, # TODO: Discuss if we should use a different length for training
-    'similarity_threshold': .99,
-    'check_ac_success': False,
-    'novelty_bias': False,
-    'goal_generator': "ConstantGoalGenerator", #Options: "LLMGoalGenerator", "ConstantGoalGenerator", "ConstantSamplerGoalGenerator"
-    'language_model': "mistral7binstruct", #Options: "mistral7binstruct", "testllm"
-    'frame_stack': 4,
-}
 
 # TODO: Do we want this to be here or in the env_wrapper?
 def make_env(name='CrafterTextEnv-v1',
@@ -62,7 +50,10 @@ def make_full_eval_env(obs_embedder, device="cpu"):
     env = EmbedTextObs(env, obs_embedder)
     return env
 
-def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
+def train_agent(env_spec: dict,
+                 max_env_steps:int =5000000, 
+                 eval_every:int=5000, 
+                 log_every:int=1000):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     # Set up logging
@@ -143,5 +134,8 @@ def train_agent(max_env_steps=5000000, eval_every=5000, log_every=1000):
                 callback=callback, 
                 log_interval=log_every)
     
-if __name__ == "__main__":    
-    train_agent()
+if __name__ == "__main__":   
+    with open("config.yaml", "r") as yamlfile:
+        env_spec = yaml.load(yamlfile, Loader=yaml.FullLoader)
+    print(env_spec) 
+    train_agent(env_spec)
