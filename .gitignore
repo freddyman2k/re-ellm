@@ -5,6 +5,7 @@ tcml_out/
 tb_logs/
 eval_logs/
 
+plotting_utils.ipynb
 # data directories
 data/
 cache.pkl
