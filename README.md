@@ -30,13 +30,22 @@ $ conda env create -f text_crafter_ellm.yml
 
 
 ## 3. Start Training:
-### 3.1. ELLM Training
+### 3.1. ELLM Training 
+#### 3.1.a. With Novelty Bias
 - **Language Model**: ```language_model: mistral7binstruct``` [View Mistral Model on: Hugging Face](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1)
 - **Goal Generator**: ```goal_generator: LLMGoalGenerator```
 - **Novelty Bias**: ```novelty_bias: True```
 - **Action Check**: ```check_ac_success: False``` - "False", because LLM should only suggest actions that are context-sensitive (because of prompting) and sensical (because of our common-sense hypothesis about LLMs).
 ```console
 $ python train.py \ # Uses configs/default_config.yaml for default train parameters
+```
+#### 3.1.a. Without Novelty Bias
+- **Language Model**: ```language_model: mistral7binstruct``` [View Mistral Model on: Hugging Face](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1)
+- **Goal Generator**: ```goal_generator: LLMGoalGenerator```
+- **Novelty Bias**: ```novelty_bias: False``` - Agent gets rewarded for actions he already performed previously
+- **Action Check**: ```check_ac_success: False``` - "False", because LLM should only suggest actions that are context-sensitive (because of prompting) and sensical (because of our common-sense hypothesis about LLMs).
+```console
+$ python train.py --novelty_bias False\ # Uses configs/default_config.yaml for default train parameters
 ```
 
 ### 3.2. Baseline Training: Novelty (context-sensitive, but potentially nonsensical actions are rewarded + Novelty bias)
