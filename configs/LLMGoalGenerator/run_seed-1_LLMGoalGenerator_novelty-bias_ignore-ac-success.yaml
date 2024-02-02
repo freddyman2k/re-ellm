@@ -1,0 +1,12 @@
+name: CrafterTextEnv-v1
+action_space_type: harder
+env_reward: False
+seed: 1
+dying: True
+length: 400
+similarity_threshold: 0.99
+check_ac_success: False
+novelty_bias: True
+goal_generator: LLMGoalGenerator #Options: "LLMGoalGenerator", "ConstantGoalGenerator", "ConstantSamplerGoalGenerator"
+language_model: mistral7binstruct  #Options: "mistral7binstruct", "testllm"
+frame_stack: 4
