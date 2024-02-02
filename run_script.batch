@@ -1,0 +1,55 @@
+#!/bin/bash
+
+####
+#a) Define slurm job parameters
+####
+
+#SBATCH --job-name=test
+
+#resources:
+
+#SBATCH --cpus-per-task=4
+# the job can use and see 12 CPUs (from max 24).
+
+#SBATCH --partition=day
+# the slurm partition the job is queued to.
+
+#SBATCH --mem-per-cpu=3G
+# the job will need 12GB of memory equally distributed on 4 cpus.  (251GB are available in total on one node)
+
+#SBATCH --gres=gpu:1
+#the job can use and see 1 GPUs (4 GPUs are available in total on one node)
+
+#SBATCH --time=20:00:00
+# the maximum time the scripts needs to run
+# "minutes:seconds", "hours:minutes:seconds", "days-hours", "days-hours:minutes" and "days-hours:minutes:seconds"
+
+
+
+#SBATCH --error=tcml_out/job.ellm%J.err
+# write the error output to job.ellm*jobID*.err
+
+#SBATCH --output=tcml_out/job.ellm%J.out
+# write the standard output to job.ellm*jobID*.out
+
+#SBATCH --mail-type=ALL
+#write a mail if a job begins, ends, fails, gets requeued or stages out
+
+#SBATCH --mail-user=clara.grotehans@student.uni-tuebingen.de
+# your mail address
+
+#SBATCH 
+
+####
+#b) copy all needed data to the jobs scratch folder
+####
+
+####
+#c) Execute your tensorflow code in a specific singularity container
+#d) Write your checkpoints to your home directory, so that you still have them if your job fails
+####
+
+singularity exec --nv /common/singularityImages/TCML-CUDA12_0_TF2_12_PT1_13.simg \
+/home/grotehans/miniconda3/envs/text-crafter-latest/bin/python -u train.py
+
+echo DONE!
