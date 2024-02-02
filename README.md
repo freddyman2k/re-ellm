@@ -3,12 +3,14 @@
 
 **Clara Grotehans**, mail: grotehans.2121604@studenti.uniroma1.it
 
-## Implementation "Guiding Pretraining in Reinforcement Learning with Large Language Models" by Y. Du, O. Watkins, et. al.
+## Implementating "Guiding Pretraining in Reinforcement Learning with Large Language Models" by Y. Du, O. Watkins, et. al.
 - [Link to Paper](https://arxiv.org/abs/2302.06692)
 - [Link to Code Base](https://github.com/yuqingd/ellm)
 
 ![ELLM algorithm](ELLM.png)
 # Project Guideline:
+For an overview of this project, feel free to check out our presentation slides: [Link to Google Slides](https://docs.google.com/presentation/d/1FC5qDXxYHzkcpBPbW8-JyLjKATOi31dizvw4AiWmZJQ/edit?usp=sharing)
+
 ## 1. Installation (using conda)
 ```console
 $ conda env create -f text_crafter_ellm.yml
@@ -16,7 +18,7 @@ $ conda env create -f text_crafter_ellm.yml
 ## 2. Default Config Variables:
 - ```name: CrafterTextEnv-v1```: Which gym environment is activated in init
 - ```action_space_type: harder```: Every combination of all possible verbs, e.g.: "make, drink, etc." + all possible objects "tree, bush, plant, zombie", which therefore also includes non-sensical actions like "drink tree"
-- ```env_reward: False``` "Only use intrinsic reward for ELLM algorithm
+- ```env_reward: False``` Only use intrinsic reward for ELLM algorithm
 - ```seed: 1```
 - ```dying: True```: Agent can die during episode if health status is too low
 - ```length: 400```: Maximum episode length
