@@ -15,6 +15,17 @@ class CreateCompleteTextObs(gym.ObservationWrapper):
         observation = {'obs': observation['obs'], 'text_obs': text_obs_complete}
         return observation
     
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        obs = self.observation(obs)
+        info['text_obs'] = obs['text_obs']
+        return obs, info
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        obs = self.observation(obs)
+        info['text_obs'] = obs['text_obs']
+        return obs, reward, terminated, truncated, info
+    
 class RewardIfActionSimilarToGoalSuggestionsFromLastStep(gym.Wrapper):
     """Rewards the agent if the action it took is similar to one of the goal suggestions for the next state"""
     def __init__(self, env, reward_calculator, shared_state, similarity_threshold=0.99, check_ac_success=True, novelty_bias=True, print_on_reward=False):
